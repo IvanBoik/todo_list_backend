@@ -1,19 +1,17 @@
 package com.boiko.todo_list.entity;
 
 import lombok.*;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDate;
+import java.util.Date;
 
 @Data
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "tasks")
 public class Task {
-    @Id
+
     private String id;
 
     private String name;
@@ -22,5 +20,5 @@ public class Task {
 
     private boolean isDone;
 
-    private LocalDate date;
+    private Date date;
 }

@@ -1,7 +1,11 @@
 package com.boiko.todo_list.controller;
 
+import com.boiko.todo_list.entity.AuthRequest;
 import com.boiko.todo_list.entity.Task;
-import com.boiko.todo_list.repo.TaskRepository;
+import com.boiko.todo_list.services.TaskService;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,52 +15,43 @@ import java.util.List;
 @RestController
 @RequestMapping("/tasks")
 public class TaskController {
+
     @Autowired
-    private TaskRepository taskRepository;
+    private TaskService taskService;
+
+    private MongoClient mongoClient;
 
     @GetMapping("/")
     public ResponseEntity<List<Task>> getAllTasks() {
-        return ResponseEntity.ok(taskRepository.findAll());
+        return ResponseEntity.ok(taskService.selectAll());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Task> getTaskByID(@PathVariable String id) {
-        return taskRepository.existsById(id)
-                ? ResponseEntity.ok(taskRepository.findById(id).orElseThrow())
-                : ResponseEntity.notFound().build();
+    public ResponseEntity<Document> getTaskByID(@PathVariable String id) {
+        return ResponseEntity.ok(taskService.selectByID(id));
     }
 
     @PostMapping("/")
-    public ResponseEntity<Task> createTask(@RequestBody Task task) {
-        return ResponseEntity.ok(taskRepository.save(task));
+    public void createTask(@RequestBody Task task) {
+        taskService.insert(task);
+    }
+
+    @PostMapping("/connect")
+    public void mongoConnection(@RequestBody AuthRequest user) {
+        if (this.mongoClient != null) {
+            mongoClient.close();
+        }
+        mongoClient = MongoClients.create("mongodb://" + user + ":" + user + "@localhost:27017/ToDoList");
+        taskService.setCollection(mongoClient.getDatabase("ToDoList").getCollection("tasks"));
     }
 
     @PutMapping("/")
-    public ResponseEntity<Task> updateTask(@RequestBody Task task) {
-        return taskRepository.existsById(task.getId())
-                ? ResponseEntity.ok(taskRepository.save(task))
-                : ResponseEntity.notFound().build();
+    public void updateTask(@RequestBody Task task) {
+        taskService.update(task);
     }
 
     @DeleteMapping("/")
-    public boolean deleteTask(@RequestBody Task task) {
-        try {
-            taskRepository.delete(task);
-            return true;
-        }
-        catch (Exception e) {
-            return false;
-        }
-    }
-
-    @DeleteMapping("/{id}")
-    public boolean deleteTaskByID(@PathVariable String id) {
-        try {
-            taskRepository.deleteById(id);
-            return true;
-        }
-        catch (Exception e) {
-            return false;
-        }
+    public void deleteTask(@RequestBody Task task) {
+        taskService.delete(task);
     }
 }
