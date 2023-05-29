@@ -2,28 +2,25 @@ package com.boiko.todo_list.services;
 
 import com.boiko.todo_list.entity.Task;
 import com.mongodb.BasicDBObject;
-import com.mongodb.ConnectionString;
-import com.mongodb.MongoClientSettings;
 import com.mongodb.client.FindIterable;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.internal.MongoClientImpl;
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
 import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class TaskService {
 
-    private MongoCollection<Document> collection =
-            MongoClients.create("mongodb://UserPlanner:UserPlanner@localhost:27017/ToDoList")
-                    .getDatabase("ToDoList")
-                    .getCollection("tasks");
+    @Autowired
+    private MongoCollection<Document> collection;
+
+    private static final Date nullDate = new Date(0);
 
 
     public void setCollection(MongoCollection<Document> collection) {
@@ -74,21 +71,86 @@ public class TaskService {
         document.put("name", task.getName());
         document.put("description", task.getDescription());
         document.put("done", task.isDone());
-        document.put("date", task.getDate());
+        document.put("deadline", task.getDeadline());
+        document.put("dateOfComplete", nullDate.equals(task.getDateOfComplete()) ? null : task.getDateOfComplete());
         return document;
     }
 
     private Task documentToTask(Document document) {
-        Date date = document.getDate("date");
-
-        Object getDone = document.get("isDone");
+        Object getDone = document.get("done");
         boolean done = getDone != null && (boolean) getDone;
         return Task.builder()
                 .id(document.get("_id").toString())
                 .name(document.get("name").toString())
                 .description(document.get("description").toString())
-                .date(date)
-                .isDone(done)
+                .deadline(document.getDate("deadline"))
+                .DateOfComplete(nullDate.equals(document.getDate("dateOfComplete")) ? null : document.getDate("dateOfComplete"))
+                .done(done)
                 .build();
+    }
+
+    public List<Task> filterByDone(boolean value) {
+        List<Task> result = new ArrayList<>();
+        collection.aggregate(
+                List.of(
+                        Aggregates.match(Filters.eq("done", value))
+                )
+        ).forEach(this::documentToTask);
+        return result;
+    }
+
+    public List<Task> filterByDate(Date date) {
+        List<Task> result = new ArrayList<>();
+        collection.aggregate(
+                List.of(
+                        Aggregates.match(Filters.eq("deadline", date))
+                )
+        ).forEach(this::documentToTask);
+        return result;
+    }
+
+    public Map<Boolean, Integer> groupByDone() {
+        Map<Boolean, Integer> res = new HashMap<>();
+        AtomicInteger trueCount = new AtomicInteger();
+        AtomicInteger falseCount = new AtomicInteger();
+        collection.aggregate(
+                List.of(
+                        Aggregates.match(Filters.eq("done", true))
+                )
+        ).forEach((x) -> trueCount.getAndIncrement());
+        collection.aggregate(
+                List.of(
+                        Aggregates.match(Filters.eq("done", false))
+                )
+        ).forEach((x) -> falseCount.getAndIncrement());
+
+        res.put(true, trueCount.get());
+        res.put(false, falseCount.get());
+
+        return res;
+    }
+
+    public List<Task> completedOnTime() {
+        List<Task> result = new ArrayList<>();
+
+        collection.find().forEach(x ->
+        {
+            if(x.getDate("DateOfComplete").before(x.getDate("deadline")))
+                result.add(documentToTask(x));
+        });
+
+        return result;
+    }
+
+    public List<Task> completedNotOnTime() {
+        List<Task> result = new ArrayList<>();
+
+        collection.find().forEach(x ->
+        {
+            if(x.getDate("DateOfComplete").after(x.getDate("deadline")))
+                result.add(documentToTask(x));
+        });
+
+        return result;
     }
 }

@@ -18,7 +18,9 @@ public class Task {
 
     private String description;
 
-    private boolean isDone;
+    private boolean done;
 
-    private Date date;
+    private Date deadline;
+
+    private Date DateOfComplete;
 }

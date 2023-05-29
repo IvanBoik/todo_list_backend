@@ -10,7 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/tasks")
@@ -19,7 +21,9 @@ public class TaskController {
     @Autowired
     private TaskService taskService;
 
+    @Autowired
     private MongoClient mongoClient;
+
 
     @GetMapping("/")
     public ResponseEntity<List<Task>> getAllTasks() {
@@ -38,10 +42,8 @@ public class TaskController {
 
     @PostMapping("/connect")
     public void mongoConnection(@RequestBody AuthRequest user) {
-        if (this.mongoClient != null) {
-            mongoClient.close();
-        }
-        mongoClient = MongoClients.create("mongodb://" + user + ":" + user + "@localhost:27017/ToDoList");
+        mongoClient = MongoClients
+                .create("mongodb://" + user.getUser() + ":" + user.getPassword() + "@localhost:27017/ToDoList");
         taskService.setCollection(mongoClient.getDatabase("ToDoList").getCollection("tasks"));
     }
 
@@ -53,5 +55,30 @@ public class TaskController {
     @DeleteMapping("/")
     public void deleteTask(@RequestBody Task task) {
         taskService.delete(task);
+    }
+
+    @GetMapping("/group_by_done")
+    public ResponseEntity<Map<Boolean, Integer>> groupByDone() {
+        return ResponseEntity.ok(taskService.groupByDone());
+    }
+
+    @PostMapping("/filter_by_done")
+    public ResponseEntity<List<Task>> filterByDone(@RequestBody boolean done) {
+        return ResponseEntity.ok(taskService.filterByDone(done));
+    }
+
+    @PostMapping("/filter_by_date")
+    public ResponseEntity<List<Task>> filterByDate(@RequestBody Date date) {
+        return ResponseEntity.ok(taskService.filterByDate(date));
+    }
+
+    @GetMapping("/on_time")
+    public ResponseEntity<List<Task>> completedOnTime() {
+        return ResponseEntity.ok(taskService.completedOnTime());
+    }
+
+    @GetMapping("/not_on_time")
+    public ResponseEntity<List<Task>> completedNotOnTime() {
+        return ResponseEntity.ok(taskService.completedNotOnTime());
     }
 }
